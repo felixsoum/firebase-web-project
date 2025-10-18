@@ -2,58 +2,62 @@ using UnityEngine;
 using UnityEngine.Networking;
 using System.Collections;
 using System.Text;
+using Newtonsoft.Json;
 
 public class FirebaseRestTest : MonoBehaviour
 {
-    // Replace this with your actual Firebase Realtime Database URL
-    private string DatabaseURL => string.Format("https://{0}.firebaseio.com/test2.json", Secrets.FirebaseURL);
+    [SerializeField] DragCircle dragCircle;
+    private string DatabaseURL => string.Format("https://{0}.firebaseio.com/circle.json", Secrets.FirebaseURL);
 
-    void Start()
+    public void Save()
     {
-        StartCoroutine(SendTestData());
-    }
-
-    IEnumerator SendTestData()
-    {
-        Debug.Log("Sending { foo: bar } to Firebase...");
-
-        string jsonData = "{\"red\":\"blue\"}";
-
-        UnityWebRequest request = new UnityWebRequest(DatabaseURL, "PUT");
-        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
-        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-        request.downloadHandler = new DownloadHandlerBuffer();
-        request.SetRequestHeader("Content-Type", "application/json");
-
-        yield return request.SendWebRequest();
-
-        if (request.result == UnityWebRequest.Result.Success)
+        string json = JsonConvert.SerializeObject(dragCircle.GetData());
+        StartCoroutine(SendCircleData(json));
+        IEnumerator SendCircleData(string jsonData)
         {
-            Debug.Log("PUT successful: " + request.downloadHandler.text);
-            StartCoroutine(GetTestData());
-        }
-        else
-        {
-            Debug.LogError("PUT failed: " + request.error);
+            UnityWebRequest request = new UnityWebRequest(DatabaseURL, "PUT");
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log("PUT successful: " + request.downloadHandler.text);
+            }
+            else
+            {
+                Debug.LogError("PUT failed: " + request.error);
+            }
         }
     }
 
-    IEnumerator GetTestData()
+    public void Load()
     {
-        Debug.Log("Reading back data from Firebase...");
-
-        UnityWebRequest request = UnityWebRequest.Get(DatabaseURL);
-        request.SetRequestHeader("Content-Type", "application/json");
-
-        yield return request.SendWebRequest();
-
-        if (request.result == UnityWebRequest.Result.Success)
+        StartCoroutine(GetCircleData());
+        IEnumerator GetCircleData()
         {
-            Debug.Log("GET successful: " + request.downloadHandler.text);
-        }
-        else
-        {
-            Debug.LogError("GET failed: " + request.error);
+            Debug.Log("Reading back data from Firebase...");
+
+            UnityWebRequest request = UnityWebRequest.Get(DatabaseURL);
+            request.SetRequestHeader("Content-Type", "application/json");
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string json = request.downloadHandler.text;
+                Debug.Log("GET successful: " + json);
+
+                var circleData = JsonConvert.DeserializeObject<CircleData>(json);
+                dragCircle.SetData(circleData);
+            }
+            else
+            {
+                Debug.LogError("GET failed: " + request.error);
+            }
         }
     }
 }
